@@ -1,0 +1,27 @@
+version: 2.1
+
+workflows:
+  ci:
+    jobs:
+      - build-and-test
+
+jobs:
+  build-and-test:
+    docker:
+      - image: gradle:6.7-jdk11
+    steps:
+      - checkout
+      - run:
+          name: Build
+          command: |
+            mvn clean install -nsu -B -e -DskipTests -Pquarkus,distribution
+            mvn clean install -nsu -B -e -f testsuite/integration-arquillian/servers/auth-server -Pauth-server-quarkus
+            mvn clean install -nsu -B -e -f testsuite/integration-arquillian/servers/auth-server -Pauth-server-wildfly
+            mvn clean install -nsu -B -e -f testsuite/integration-arquillian/servers/auth-server -Pauth-server-undertow
+      - run:
+          name: Run tests
+          command:
+            if ! mvn install -nsu -B -DskipTestsuite -DskipExamples -f pom.xml; then
+              find . -path '*/target/surefire-reports/*.xml' | zip -q reports-unit-tests.zip -@
+              exit 1
+            fi
